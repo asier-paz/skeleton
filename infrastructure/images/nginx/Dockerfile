@@ -1,0 +1,8 @@
+FROM nginx:1.18.0
+
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
+# Create the user_infra to use in the configuration file of nginx
+RUN groupadd user_infra -g$HOST_GID
+RUN useradd user_infra -u$HOST_UID -g$HOST_GID -d /home/user_infra -s /bin/bash

@@ -1,0 +1,23 @@
+# IDE files
+.idea/
+.vscode/
+
+# Wordpress
+wp-content/cache/
+wp-content/uploads/
+
+# Ignore infrastructure data directory
+infrastructure/data/
+
+# Ignore composer dependencies
+vendor/
+
+# Node modules
+node_modules/
+
+# .cache files
+# from PHP-CS-Fixer and PHPUnit for example
+*.cache
+
+# dotenv files
+.env

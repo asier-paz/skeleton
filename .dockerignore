@@ -1,0 +1,6 @@
+# IDE files
+.idea/
+.vscode/
+
+# Local infra data
+infra/data/

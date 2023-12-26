@@ -1,0 +1,97 @@
+version: "2.4"
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: infrastructure/images/nginx/Dockerfile
+      args:
+        - HOST_UID=${HOST_UID:-1000}
+        - HOST_GID=${HOST_GID:-1000}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/data/unix_sockets:/run/sockets
+      - code:/var/www/app
+      - ./infrastructure/data/logs:/var/log/app
+      - ./infrastructure/conf/nginx/conf:/etc/nginx/conf.d
+      - ./infrastructure/conf/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - php
+      - mysql
+      - loki
+      - promtail
+      - prometheus
+
+  mysql:
+    image: mysql:8-debian
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PWD}
+    volumes:
+      - ./infrastructure/data/unix_sockets:/run/sockets
+      - ./infrastructure/data/logs:/var/log/app
+      - ./infrastructure/conf/mysql/conf.d:/etc/mysql/conf.d
+      - ./infrastructure/conf/mysql/my.cnf:/etc/mysql/my.cnf
+      - ./infrastructure/migrations:/docker-entrypoint-initdb.d
+      - ./infrastructure/data/mysql:/var/lib/mysql
+
+  grafana:
+    image: grafana/grafana:10.0.1-ubuntu
+    restart: unless-stopped
+    user: ${HOST_UID:-1000}:${HOST_GID:-1000}
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_PATHS_LOGS=/var/log/app/grafana
+    volumes:
+      - ./infrastructure/data/unix_sockets:/run/sockets
+      - ./infrastructure/data/logs:/var/log/app
+      - ./infrastructure/data/grafana:/var/lib/grafana
+      - ./infrastructure/conf/grafana/defaults.ini:/usr/share/grafana/conf/defaults.ini
+    entrypoint: grafana server
+
+  prometheus:
+    image: prom/prometheus:v2.47.2
+    restart: unless-stopped
+    user: 0:0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/data/unix_sockets:/run/sockets
+      - ./infrastructure/data/logs:/var/log/app
+      - ./infrastructure/conf/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    entrypoint: >
+      sh -c "
+      /bin/prometheus 
+      --config.file=/etc/prometheus/prometheus.yml 
+      --storage.tsdb.path=/prometheus 
+      --storage.tsdb.retention.time=90d 
+      --web.console.libraries=/usr/share/prometheus/console_libraries 
+      --web.console.templates=/usr/share/prometheus/consoles
+      2> /var/log/app/prometheus/prometheus.log"
+
+  loki:
+    image: grafana/loki:2.9.1
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infrastructure/data/unix_sockets:/run/sockets
+      - ./infrastructure/data/logs:/var/log/app
+      - ./infrastructure/conf/loki/loki-config.yaml:/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:2.9.1
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/data/unix_sockets:/run/sockets
+      - ./infrastructure/data/logs:/var/log/app
+      - ./infrastructure/conf/loki/promtail-config.yaml:/etc/promtail/config.yml
+
+volumes:
+  code: { }
